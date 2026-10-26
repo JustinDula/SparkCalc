@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4b545d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sparky">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Sparky Calc</title>
+<style>
+:root{
+  --shell:#4b545d; --shell-lo:#3d454d; --key:#272c31; --key-hi:#343a40; --ink:#f1f3f4;
+  --num:#d7dbde; --num-ink:#1f2326; --lcd:#c5cdb4; --lcd-ink:#1b2216; --lcd-dim:#5d6a52;
+  --alt:#9ccff5; --red:#d23a2e; --blue:#3a6fd0; --brown:#a0612f; --green:#2f9b52; --white:#e9ebec;
+  --font:-apple-system,BlinkMacSystemFont,"Roboto Condensed","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--shell);color:var(--ink);font-family:var(--font);
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.app{height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) 8px calc(env(safe-area-inset-bottom,0px) + 8px)}
+/* LCD */
+.lcd{background:var(--lcd);color:var(--lcd-ink);border-radius:10px;padding:8px 12px 8px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.12);cursor:pointer;flex:none}
+.ind{display:flex;gap:10px;font-size:12px;font-weight:600;min-height:15px;color:var(--lcd-dim)}
+.ind .on{color:var(--lcd-ink)}
+.ind .mode{margin-left:auto}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:2px}
+#label{font-size:20px;font-weight:600;white-space:nowrap}
+.readout{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-height:58px}
+#value{font-size:clamp(40px,13vw,58px);font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%}
+#unit{font-size:20px;font-weight:600;white-space:nowrap}
+#desc{font-size:15px;font-weight:600;min-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#detail{font-size:12.5px;line-height:1.3;color:#2f3a28;min-height:33px;max-height:49px;overflow:hidden}
+/* settings */
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 4px;flex:none}
+.chip{font:600 13px var(--font);color:var(--ink);background:var(--shell-lo);border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;padding:7px 0;cursor:pointer}
+.chip:focus-visible,.key:focus-visible{outline:2px solid var(--alt);outline-offset:2px}
+/* keys */
+.pad{flex:1;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(8,1fr);column-gap:7px;row-gap:2px;min-height:0}
+.cell{display:flex;flex-direction:column;min-height:0}
+.alt{font-size:11px;font-weight:600;color:#c7cdd2;text-align:center;height:14px;line-height:14px;white-space:nowrap;
+  overflow:hidden;transition:color .12s}
+.shift .alt{color:var(--alt)}
+.key{flex:1;min-height:34px;border:0;border-radius:9px;background:var(--key);color:var(--ink);
+  font:600 clamp(13px,3.9vw,17px)/1.05 var(--font);cursor:pointer;padding:0 2px;position:relative;
+  box-shadow:0 2px 0 rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);border-bottom:4px solid var(--band,transparent)}
+.key:active,.key.down{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.45);filter:brightness(1.15)}
+.g-pw{--band:var(--red)} .g-wr{--band:var(--blue)} .g-mo{--band:var(--brown)} .g-gd{--band:var(--green)} .g-ut{--band:var(--white)}
+.g-num{background:var(--num);color:var(--num-ink);font-size:clamp(22px,7vw,30px);font-weight:500}
+.g-op{background:var(--key-hi);font-size:clamp(20px,6vw,26px)}
+.g-shift{background:var(--alt);color:#10263a}
+.shift .g-shift{background:#fff}
+.g-clr{background:#8e2a22}
+/* sheets */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:5}
+.sheet.open{display:flex}
+.panel{background:#f4f5f6;color:#1d2125;width:100%;max-width:520px;border-radius:14px 14px 0 0;
+  padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 16px);max-height:85%;overflow:auto;-webkit-user-select:text;user-select:text}
+.panel h2{font-size:18px;margin:0 0 10px}
+.sizes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sizes button,.panel .btn{font:600 15px var(--font);padding:10px 0;border-radius:8px;border:1px solid #c9ced3;background:#fff;color:#1d2125;cursor:pointer}
+.sizes button.sel{background:var(--blue);color:#fff;border-color:var(--blue)}
+.regs{width:100%;border-collapse:collapse;font-size:15px}
+.regs td{padding:6px 0;border-bottom:1px solid #dde1e4}
+.regs td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:8px;margin-top:12px}.row .btn{flex:1}
+.panel p{font-size:13px;line-height:1.45;color:#4a525a;margin:12px 0 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="lcd" id="lcd" role="status" aria-live="polite" title="Tap to see stored values">
+    <div class="ind"><span id="i-2nd">2nd</span><span id="i-k">k</span><span id="i-m">m</span><span id="i-mem">M</span><span id="i-rcl">RCL</span><span class="mode on" id="i-mode"></span></div>
+    <div class="top"><span id="label">Ready</span></div>
+    <div class="readout"><span id="value">0</span><span id="unit"></span></div>
+    <div id="desc"></div>
+    <div id="detail"></div>
+  </div>
+  <div class="chips">
+    <button class="chip" id="c-phase" aria-label="Phase"></button>
+    <button class="chip" id="c-metal" aria-label="Conductor metal"></button>
+    <button class="chip" id="c-temp" aria-label="Temperature column"></button>
+    <button class="chip" id="c-insul" aria-label="Insulation type"></button>
+    <button class="chip" id="c-race" aria-label="Raceway type"></button>
+  </div>
+  <div class="pad" id="pad"></div>
+</div>
+
+<div class="sheet" id="sizeSheet"><div class="panel">
+  <h2>Conductor size</h2><div class="sizes" id="sizeGrid"></div>
+  <div class="row"><button class="btn" data-close>Cancel</button></div>
+</div></div>
+
+<div class="sheet" id="regSheet"><div class="panel">
+  <h2>Stored values</h2><table class="regs" id="regTable"></table>
+  <div class="row"><button class="btn" id="clearAll">Clear all values</button><button class="btn" data-close>Done</button></div>
+  <p>Tables per NEC 2023: 310.16 ampacity, 310.15(B) ambient correction (formula method), 310.15(C)(1) adjustment,
+  240.4(D) small conductors, 250.122 EGC, 430.248/430.250 motor FLC, 430.52 and 430.32 motor protection, and
+  Chapter 9 Tables 4, 5 and 8. Voltage drop uses Table 8 DC resistance at 75°C. Verify results against your code book
+  and local amendments before installing.</p>
+</div></div>
+
+<script>
+'use strict';
+/* ---------- NEC data ---------- */
+const SIZES=['14','12','10','8','6','4','3','2','1','1/0','2/0','3/0','4/0','250','300','350','400','500','600','700','750','800','900','1000','1250','1500','1750','2000'];
+const IDX=Object.fromEntries(SIZES.map((s,i)=>[s,i]));
+// Table 310.16 [60,75,90 °C]
+const AMP={
+ Cu:{60:[15,20,30,40,55,70,85,95,110,125,145,165,195,215,240,260,280,320,350,385,400,410,435,455,495,525,545,555],
+     75:[20,25,35,50,65,85,100,115,130,150,175,200,230,255,285,310,335,380,420,460,475,490,520,545,590,625,650,665],
+     90:[25,30,40,55,75,95,115,130,145,170,195,225,260,290,320,350,380,430,475,520,535,555,585,615,665,705,735,750]},
+ Al:{60:[null,15,25,35,40,55,65,75,85,100,115,130,150,170,195,210,225,260,285,315,320,330,355,375,405,435,455,470],
+     75:[null,20,30,40,50,65,75,90,100,120,135,155,180,205,230,250,270,310,340,375,385,395,425,445,485,520,545,560],
+     90:[null,25,35,45,55,75,85,100,115,135,150,175,205,230,260,280,305,350,385,425,435,445,480,500,545,585,615,630]}};
+// 240.4(D) small-conductor OCPD limits
+const SMALL={Cu:{'14':15,'12':20,'10':30},Al:{'12':15,'10':25}};
+// Chapter 9 Table 8, DC resistance at 75°C, ohm/kft, stranded (uncoated Cu / Al)
+const RES={
+ Cu:[3.14,1.98,1.24,0.778,0.491,0.308,0.245,0.194,0.154,0.122,0.0967,0.0766,0.0608,0.0515,0.0429,0.0367,0.0321,0.0258,0.0214,0.0184,0.0171,0.0161,0.0143,0.0129,0.0103,0.00858,0.00735,0.00643],
+ Al:[null,3.25,2.04,1.28,0.808,0.508,0.403,0.319,0.253,0.201,0.159,0.126,0.100,0.0847,0.0707,0.0605,0.0529,0.0424,0.0353,0.0303,0.0282,0.0265,0.0235,0.0212,0.0169,0.0141,0.0121,0.0106]};
+// Chapter 9 Table 5 conductor area, in² (14 AWG – 750 kcmil)
+const AREA={
+ THHN:[0.0097,0.0133,0.0211,0.0366,0.0507,0.0824,0.0973,0.1158,0.1562,0.1855,0.2223,0.2679,0.3237,0.3970,0.4608,0.5242,0.5863,0.7073,0.8676,0.9887,1.0496],
+ XHHW:[0.0139,0.0181,0.0243,0.0437,0.0590,0.0814,0.0962,0.1146,0.1534,0.1825,0.2190,0.2642,0.3197,0.3904,0.4536,0.5166,0.5782,0.6984,0.8709,0.9923,1.0532],
+ THW:[0.0209,0.0260,0.0333,0.0556,0.0726,0.0973,0.1134,0.1333,0.1901,0.2223,0.2624,0.3117,0.3718,0.4596,0.5281,0.5958,0.6619,0.7901,0.9729,1.1010,1.1652]};
+const INSUL_NAME={THHN:'THHN/THWN',XHHW:'XHHW',THW:'THW/THHW'};
+// Chapter 9 Table 4, total internal area (100%), in²
+const RACE={
+ EMT:[['1/2',0.304],['3/4',0.533],['1',0.864],['1-1/4',1.496],['1-1/2',2.036],['2',3.356],['2-1/2',5.858],['3',8.846],['3-1/2',11.545],['4',14.753]],
+ PVC40:[['1/2',0.285],['3/4',0.508],['1',0.832],['1-1/4',1.453],['1-1/2',1.986],['2',3.291],['2-1/2',4.695],['3',7.268],['3-1/2',9.737],['4',12.554],['5',19.761],['6',28.567]],
+ RMC:[['1/2',0.314],['3/4',0.549],['1',0.887],['1-1/4',1.526],['1-1/2',2.071],['2',3.408],['2-1/2',4.866],['3',7.499],['3-1/2',10.010],['4',12.882],['5',20.212],['6',29.158]]};
+const RACE_NAME={EMT:'EMT',PVC40:'PVC 40',RMC:'RMC'};
+// Table 250.122 [max OCPD, Cu, Al]
+const EGC=[[15,'14','12'],[20,'12','10'],[60,'10','8'],[100,'8','6'],[200,'6','4'],[300,'4','2'],[400,'3','1'],[500,'2','1/0'],[600,'1','2/0'],[800,'1/0','3/0'],[1000,'2/0','4/0'],[1200,'3/0','250'],[1600,'4/0','350'],[2000,'250','400'],[2500,'350','600'],[3000,'400','600'],[4000,'500','750'],[5000,'700','1200'],[6000,'800','1200']];
+// Table 430.250 (3φ induction) and 430.248 (1φ)
+const FLC3_COLS=[200,208,230,460,575];
+const FLC3=[[0.5,2.5,2.4,2.2,1.1,0.9],[0.75,3.7,3.5,3.2,1.6,1.3],[1,4.8,4.6,4.2,2.1,1.7],[1.5,6.9,6.6,6.0,3.0,2.4],[2,7.8,7.5,6.8,3.4,2.7],[3,11.0,10.6,9.6,4.8,3.9],[5,17.5,16.7,15.2,7.6,6.1],[7.5,25.3,24.2,22,11,9],[10,32.2,30.8,28,14,11],[15,48.3,46.2,42,21,17],[20,62.1,59.4,54,27,22],[25,78.2,74.8,68,34,27],[30,92,88,80,40,32],[40,120,114,104,52,41],[50,150,143,130,65,52],[60,177,169,154,77,62],[75,221,211,192,96,77],[100,285,273,248,124,99],[125,359,343,312,156,125],[150,414,396,360,180,144],[200,552,528,480,240,192],[250,null,null,null,302,242],[300,null,null,null,361,289],[350,null,null,null,414,336],[400,null,null,null,477,382],[450,null,null,null,515,412],[500,null,null,null,590,472]];
+const FLC1_COLS=[115,200,208,230];
+const FLC1=[[1/6,4.4,2.5,2.4,2.2],[0.25,5.8,3.3,3.2,2.9],[1/3,7.2,4.1,4.0,3.6],[0.5,9.8,5.6,5.4,4.9],[0.75,13.8,7.9,7.6,6.9],[1,16,9.2,8.8,8],[1.5,20,11.5,11,10],[2,24,13.8,13.2,12],[3,34,19.6,18.7,17],[5,56,32.2,30.8,28],[7.5,80,46,44,40],[10,100,57.5,55,50]];
+// 240.6(A) standard ratings
+const STD=[15,20,25,30,35,40,45,50,60,70,80,90,100,110,125,150,175,200,225,250,300,350,400,450,500,600,700,800,1000,1200,1600,2000,2500,3000,4000,5000,6000];
+const BTU_PER_KWH=3412.14;
+
+/* ---------- state ---------- */
+const S={phase:1,metal:'Cu',temp:75,insul:'THHN',race:'EMT',mem:0};
+try{Object.assign(S,JSON.parse(localStorage.getItem('sparky')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('sparky',JSON.stringify(S))}catch(e){}};
+const REG={V:['Volts','V'],A:['Amps','A'],W:['Watts','W'],VA:['Volt-amps','VA'],PF:['Power factor','%',100],Eff:['Efficiency','%',100],
+ HP:['Horsepower','HP'],L:['Length, one way','ft'],VDt:['VD limit','%',3],Amb:['Ambient','°C',30],CCC:['Current-carrying conductors','',3],
+ Par:['Parallel sets','',1],Wires:['Wires in raceway','',3],Size:['Conductor size',''],OCPD:['Last OCPD','A']};
+let r={}, t={}, clock=0, lastOCPD=null;
+const get=k=>r[k]!=null?r[k]:(REG[k][2]!=null?REG[k][2]:null);
+const setR=(k,v)=>{r[k]=v;t[k]=++clock};
+let ent='',acc=null,op=null,dispVal=0,fresh=false,shift=false,km=null,rcl=false;
+
+class CalcError extends Error{}
+const fail=m=>{throw new CalcError(m)};
+const kf=()=>S.phase===3?Math.sqrt(3):1;
+const pf=()=>get('PF')/100, eff=()=>get('Eff')/100;
+const phi=()=>S.phase===3?'3φ':'1φ';
+
+/* ---------- formatting ---------- */
+function fmt(n,dp){
+  if(typeof n==='string')return n;
+  if(n==null||!isFinite(n))return 'Error';
+  if(dp!=null)n=Math.round(n*10**dp)/10**dp;
+  const a=Math.abs(n);
+  if(a!==0&&(a>=1e10||a<1e-6))return n.toExponential(4);
+  return String(parseFloat(n.toPrecision(10)));
+}
+const sizeUnit=s=>/^\d{3,}$/.test(s)?'kcmil':'AWG';
+const sizeTxt=s=>s+' '+sizeUnit(s);
+
+/* ---------- electrical solvers ---------- */
+function latest(keys){return keys.filter(k=>r[k]!=null).sort((a,b)=>t[b]-t[a])}
+function flc(){
+  const hp=r.HP, V=r.V;
+  if(hp==null)fail('Enter HP first');
+  if(V==null)fail('Enter Volts first');
+  let col=-1, cols, table;
+  if(S.phase===3){cols=FLC3_COLS;table=FLC3;
+    if(V>=199&&V<=203)col=0;else if(V>=204&&V<=212)col=1;else if(V>=220&&V<=240)col=2;else if(V>=440&&V<=480)col=3;else if(V>=550&&V<=600)col=4;
+  }else{cols=FLC1_COLS;table=FLC1;
+    if(V>=110&&V<=120)col=0;else if(V>=199&&V<=203)col=1;else if(V>=204&&V<=212)col=2;else if(V>=220&&V<=240)col=3;}
+  const tbl=S.phase===3?'430.250':'430.248';
+  if(col<0)fail(`No Table ${tbl} column for ${fmt(V)} V`);
+  const row=table.find(x=>Math.abs(x[0]-hp)<0.005);
+  if(!row||row[col+1]==null)fail(`No Table ${tbl} value for ${fmt(hp)} HP at ${cols[col]} V`);
+  return {v:row[col+1],how:`Table ${tbl}, ${fmt(hp,3)} HP @ ${cols[col]} V column`,motor:true};
+}
+function getA(){
+  const src=latest(['A','VA','W','HP'])[0];
+  if(src==='A')return {v:r.A,how:'stored'};
+  if(src==='HP')return flc();
+  if(src&&r.V==null)fail('Enter Volts first');
+  if(src==='VA')return {v:r.VA/(r.V*kf()),how:`VA ÷ (V${S.phase===3?' × √3':''})`};
+  if(src==='W')return {v:r.W/(r.V*kf()*pf()),how:`W ÷ (V${S.phase===3?' × √3':''} × PF)`};
+  fail('Enter Amps, or Volts with Watts, VA or HP');
+}
+function getV(){
+  if(r.V!=null)return {v:r.V,how:'stored'};
+  if(r.A==null)fail('Enter Amps with Watts or VA');
+  const src=latest(['VA','W'])[0];
+  if(src==='VA')return {v:r.VA/(r.A*kf()),how:'VA ÷ A'};
+  if(src==='W')return {v:r.W/(r.A*kf()*pf()),how:'W ÷ (A × PF)'};
+  fail('Enter Watts or VA with Amps');
+}
+function getW(){
+  const src=latest(['W','VA','HP'])[0];
+  if(src==='W')return {v:r.W,how:'stored'};
+  if(src==='VA')return {v:r.VA*pf(),how:'VA × PF'};
+  if(src==='HP')return {v:r.HP*746/eff(),how:'HP × 746 ÷ Eff (input watts)'};
+  if(r.V!=null&&r.A!=null)return {v:r.V*r.A*kf()*pf(),how:`V × A${S.phase===3?' × √3':''} × PF`};
+  fail('Enter VA, HP, or Volts and Amps');
+}
+function getVA(){
+  const src=latest(['VA','W','HP'])[0];
+  if(src==='VA')return {v:r.VA,how:'stored'};
+  if(src==='W')return {v:r.W/pf(),how:'W ÷ PF'};
+  if(src==='HP')return {v:r.HP*746/eff()/pf(),how:'HP × 746 ÷ Eff ÷ PF'};
+  if(r.V!=null&&r.A!=null)return {v:r.V*r.A*kf(),how:`V × A${S.phase===3?' × √3':''}`};
+  fail('Enter Watts, HP, or Volts and Amps');
+}
+function getHP(){
+  if(r.HP!=null)return {v:r.HP,how:'stored'};
+  const w=getW();
+  return {v:w.v*eff()/746,how:'input W × Eff ÷ 746'};
+}
+function ambFactor(){
+  const Ta=get('Amb'),Tc=S.temp;
+  if(Ta>=Tc)fail(`Ambient ${fmt(Ta)}°C is at or above the ${Tc}°C rating`);
+  return Math.sqrt((Tc-Ta)/(Tc-30));
+}
+function bundleFactor(){
+  const n=get('CCC');
+  return n<=3?1:n<=6?0.8:n<=9?0.7:n<=20?0.5:n<=30?0.45:n<=40?0.4:0.35;
+}
+function needSize(){const s=r.Size;if(s==null)fail('Set a size: tap Size or run Wire size');return s}
+function resistance(s){const v=RES[S.metal][IDX[s]];if(v==null)fail(`No ${S.metal} data for ${sizeTxt(s)}`);return v}
+function vdFor(s,A,V,L,par){
+  const R=resistance(s), kk=S.phase===3?Math.sqrt(3):2, vd=kk*A*R*L/1000/par;
+  return {vd,pct:vd/V*100,R,kk};
+}
+function stdUp(a){const x=STD.find(s=>s>=a-1e-9);if(!x)fail('Above 6000 A');return x}
+
+/* ---------- display ---------- */
+const el=id=>document.getElementById(id);
+function show(o){
+  el('label').textContent=o.label||'';
+  let v=o.value;
+  if(typeof v==='number'){
+    if(km&&o.scale!==false){v=km==='k'?v/1000:v*1000;o.unit=(km==='k'?'k':'m')+(o.unit||'');km=null}
+    dispVal=v; v=fmt(v,o.dp);
+  }
+  el('value').textContent=v==null?'':v;
+  el('unit').textContent=o.unit||'';
+  el('desc').textContent=o.desc||'';
+  el('detail').textContent=o.detail||'';
+  fitValue(); ind();
+}
+function fitValue(){
+  const v=el('value');v.style.fontSize='';
+  let fs=parseFloat(getComputedStyle(v).fontSize),avail=el('lcd').clientWidth-24-el('unit').offsetWidth-8;
+  while(v.scrollWidth>avail&&fs>18){fs-=2;v.style.fontSize=fs+'px'}
+}
+function ind(){
+  el('i-2nd').className=shift?'on':'';el('i-k').className=km==='k'?'on':'';el('i-m').className=km==='m'?'on':'';
+  el('i-mem').className=S.mem?'on':'';el('i-rcl').className=rcl?'on':'';
+  el('i-mode').textContent=`${phi()} ${S.metal} ${S.temp}°C`;
+  el('app').classList.toggle('shift',shift);
+}
+function showEntry(){
+  show({label:op?{add:'+',sub:'−',mul:'×',div:'÷'}[op]:'',value:ent===''?'0':ent,unit:km?(km==='k'?'k':'m'):''});
+}
+function errShow(m){show({label:'Error',value:'—',desc:m});dispVal=0}
+
+/* ---------- entry + arithmetic ---------- */
+const apply=(a,o,b)=>o==='add'?a+b:o==='sub'?a-b:o==='mul'?a*b:(b===0?NaN:a/b);
+const curVal=()=>ent!==''&&ent!=='-'?parseFloat(ent):dispVal;
+function resolvePending(){
+  if(op){ if(ent!==''){dispVal=apply(acc,op,parseFloat(ent));ent='';fresh=true}else{dispVal=acc;fresh=true} op=null;acc=null }
+}
+function takeEntry(){
+  if(ent===''&&!fresh)return null;
+  let v=curVal(); if(km==='k')v*=1000;else if(km==='m')v/=1000;
+  km=null;ent='';fresh=false;return v;
+}
+function digit(d){
+  rcl=false; if(fresh){fresh=false}
+  if(ent.replace(/[-.]/g,'').length>=12)return;
+  if(d==='.'){if(ent.includes('.'))return;ent=(ent===''||ent==='-')?ent+'0.':ent+'.'}
+  else ent=(ent==='0')?d:(ent==='-0'?'-'+d:ent+d);
+  showEntry();
+}
+function binop(o){
+  if(op&&ent!==''){acc=apply(acc,op,parseFloat(ent))}
+  else if(!op){acc=curVal()}
+  op=o;ent='';fresh=false;dispVal=acc;
+  show({label:{add:'+',sub:'−',mul:'×',div:'÷'}[o],value:acc,scale:false});
+}
+function equals(){
+  if(!op){fresh=ent!==''||fresh;if(ent!==''){dispVal=parseFloat(ent);ent=''}return}
+  const b=ent!==''?parseFloat(ent):dispVal, res=apply(acc,op,b);
+  op=null;acc=null;ent='';
+  show({label:'=',value:res,scale:false});fresh=true;
+}
+function unary(fn,label){
+  const x=curVal();const y=fn(x);ent='';
+  show({label,value:y,scale:false});fresh=true;
+}
+
+/* ---------- key handlers ---------- */
+const store=(k,v)=>{
+  const [name,unit]=REG[k];
+  if(['PF','Eff'].includes(k)&&(v<=0||v>100))fail(`${name} must be above 0 and at most 100%`);
+  if(['Par','CCC','Wires'].includes(k)&&(v<1||!Number.isInteger(v)))fail(`${name} must be a whole number of 1 or more`);
+  if(['V','L','HP','VDt'].includes(k)&&v<=0)fail(`${name} must be greater than 0`);
+  setR(k,v);
+  show({label:name,value:v,unit,desc:'Stored',scale:false});dispVal=v;
+};
+function regKey(k,compute){
+  const v=takeEntry();
+  if(v!=null)return store(k,v);
+  if(compute)return compute();
+  const val=get(k);
+  show({label:REG[k][0],value:val==null?'—':val,unit:REG[k][1],desc:val==null?'Not set':(r[k]==null?'Default':'Stored'),scale:false});
+}
+function res(label,g,unit,extra={}){show(Object.assign({label,value:g.v,unit,dp:2,detail:g.how==='stored'?'Stored value':g.how},extra))}
+
+const F={
+  V:()=>regKey('V',()=>res('Volts',getV(),'V',{desc:phi()})),
+  A:()=>regKey('A',()=>{const g=getA();res('Amps',g,'A',{desc:phi()+(g.motor?' motor FLC':'')})}),
+  W:()=>regKey('W',()=>res('Watts',getW(),'W',{desc:`${phi()}, PF ${fmt(get('PF'))}%`})),
+  VA:()=>regKey('VA',()=>res('Volt-amps',getVA(),'VA',{desc:phi()})),
+  PF:()=>regKey('PF'), Eff:()=>regKey('Eff'),
+  HP:()=>regKey('HP',()=>res('Horsepower',getHP(),'HP',{desc:`Eff ${fmt(get('Eff'))}%`})),
+  FLC:()=>{const v=takeEntry();if(v!=null)setR('HP',v);const g=flc();
+    show({label:'Motor FLC',value:g.v,unit:'A',desc:`${phi()} ${fmt(r.HP,3)} HP`,detail:g.how+'. Use for conductor and OCPD sizing (430.6(A)).'})},
+  L:()=>regKey('L',()=>F.MaxL()),
+  VDt:()=>regKey('VDt'), Amb:()=>regKey('Amb'), CCC:()=>regKey('CCC'), Par:()=>regKey('Par'), Wires:()=>regKey('Wires'),
+  Size:()=>{
+    const v=takeEntry();
+    if(v!=null){const s=String(v);if(IDX[s]==null)fail(`${s} is not a standard size. Tap Size with no entry to pick 1/0–4/0.`);
+      setR('Size',s);return show({label:'Size',value:s,unit:sizeUnit(s)+' '+S.metal,desc:'Stored',scale:false})}
+    openSizes();
+  },
+  WS:()=>{
+    const ev=takeEntry(); let A,how,motor=false;
+    if(ev!=null){A=ev;how='entered'}else{const g=getA();A=g.v;how=g.how;motor=!!g.motor}
+    if(!(A>0))fail('Amps must be greater than 0');
+    const design=motor?A*1.25:A, par=get('Par'), fa=ambFactor(), fb=bundleFactor(), per=design/par;
+    let pick=null,base,lim;
+    for(const s of SIZES){
+      if(par>1&&IDX[s]<IDX['1/0'])continue;
+      base=AMP[S.metal][S.temp][IDX[s]]; if(base==null)continue;
+      let use=base*fa*fb; lim=SMALL[S.metal][s]; if(lim)use=Math.min(use,lim);
+      if(use>=per-1e-9){pick=s;break}
+    }
+    if(!pick)fail('Load exceeds 2000 kcmil. Add parallel sets.');
+    let final=pick, vdNote='';
+    if(r.L!=null&&r.V!=null){
+      const lim2=get('VDt'); let vs=null;
+      for(const s of SIZES){if(IDX[s]<IDX[pick])continue;if(RES[S.metal][IDX[s]]==null)continue;if(vdFor(s,A,r.V,r.L,par).pct<=lim2){vs=s;break}}
+      if(!vs)fail(`No size meets ${fmt(lim2)}% VD over ${fmt(r.L)} ft`);
+      final=vs; const p=vdFor(final,A,r.V,r.L,par).pct;
+      vdNote=final!==pick?` Upsized from ${pick} for VD: ${fmt(p,2)}% at ${fmt(r.L)} ft.`:` VD ${fmt(p,2)}% at ${fmt(r.L)} ft.`;
+    }
+    setR('Size',final);
+    const b=AMP[S.metal][S.temp][IDX[pick]];
+    let parts=`Table 310.16: ${pick} = ${b} A`;
+    if(fa!==1)parts+=` × ${fmt(fa,2)} amb`;
+    if(fb!==1)parts+=` × ${fb} fill`;
+    if(SMALL[S.metal][pick])parts+=`, OCPD ≤ ${SMALL[S.metal][pick]} A (240.4(D))`;
+    let detail=parts+'.'+vdNote;
+    if(motor)detail=`125% × ${fmt(A,2)} A FLC = ${fmt(design,2)} A (430.22). `+detail;
+    if(S.temp===90)detail+=' Check 110.14(C) termination rating.';
+    show({label:par>1?`Wire size, ${par} sets`:'Wire size',value:final,unit:sizeUnit(final)+' '+S.metal,
+      desc:`${phi()} ${S.temp}°C ${S.metal}, ${fmt(design/par,2)} A${par>1?' per set':''}`,detail});
+  },
+  VD:()=>{
+    const s=needSize(), A=getA().v, V=getV().v, L=r.L; if(L==null)fail('Enter Length first');
+    const p=get('Par'), d=vdFor(s,A,V,L,p);
+    show({label:'Voltage drop',value:d.pct,unit:'%',dp:2,desc:`${fmt(d.vd,2)} V on ${sizeTxt(s)} ${S.metal}, ${fmt(L)} ft`,
+      detail:`${S.phase===3?'√3':'2'} × ${fmt(A,2)} A × ${d.R} Ω/kft × ${fmt(L)} ft ÷ 1000${p>1?' ÷ '+p:''} (Ch. 9 Table 8, 75°C).`,scale:false});
+  },
+  MaxL:()=>{
+    const s=needSize(), A=getA().v, V=getV().v, p=get('Par'), lim=get('VDt'), R=resistance(s), kk=S.phase===3?Math.sqrt(3):2;
+    const L=lim/100*V*1000*p/(kk*A*R);
+    show({label:'Max length',value:L,unit:'ft',dp:0,desc:`${fmt(lim)}% VD on ${sizeTxt(s)} ${S.metal}`,detail:`One-way length at ${fmt(A,2)} A, ${fmt(V)} V, ${phi()}.`,scale:false});
+  },
+  Cond:()=>{
+    const s=needSize(), n=get('Wires'), a=AREA[S.insul][IDX[s]];
+    if(a==null)fail(`No Table 5 area for ${sizeTxt(s)}`);
+    const pct=n===1?0.53:n===2?0.31:0.40, need=a*n;
+    const hit=RACE[S.race].find(([,A])=>A*pct>=need-1e-9);
+    if(!hit)fail(`Over largest ${RACE_NAME[S.race]}. Use parallel raceways.`);
+    show({label:'Raceway',value:hit[0],unit:`in ${RACE_NAME[S.race]}`,desc:`${n} × ${sizeTxt(s)} ${INSUL_NAME[S.insul]}`,
+      detail:`${fmt(need,4)} in² of ${fmt(hit[1]*pct,3)} in² allowed (${pct*100}% fill, Ch. 9 Tables 1, 4, 5). Fill ${fmt(need/hit[1]*100,1)}%.`,scale:false});
+  },
+  GND:()=>{
+    const v=takeEntry(); const o=v!=null?v:lastOCPD;
+    if(o==null)fail('Enter the OCPD rating in amps, then Ground');
+    const row=EGC.find(x=>o<=x[0]); if(!row)fail('Above 6000 A');
+    const s=S.metal==='Cu'?row[1]:row[2];
+    show({label:'EGC',value:s,unit:sizeUnit(s)+' '+S.metal,desc:`For ${fmt(o)} A OCPD`,
+      detail:'Table 250.122. Increase proportionally if ungrounded conductors were upsized for VD (250.122(B)).',scale:false});
+  },
+  CB:()=>motorOCPD(2.5,'Inverse-time CB'), DEF:()=>motorOCPD(1.75,'Dual-element fuse'),
+  OL:()=>overload(1.25,'SF ≥ 1.15 or temp rise ≤ 40°C'), OL115:()=>overload(1.15,'all other motors'),
+  BTU:()=>{const v=takeEntry();const x=v!=null?v:dispVal;show({label:'BTU',value:x*BTU_PER_KWH,unit:'BTU',dp:2,desc:`${fmt(x)} kWh`,detail:'1 kWh = 3412.14 BTU',scale:false})},
+  KWH:()=>{const v=takeEntry();const x=v!=null?v:dispVal;show({label:'kWh',value:x/BTU_PER_KWH,unit:'kWh',dp:4,desc:`${fmt(x)} BTU`,detail:'1 kWh = 3412.14 BTU',scale:false})},
+  kilo:()=>{km=km==='k'?null:'k';ent!==''?showEntry():ind()},
+  milli:()=>{km=km==='m'?null:'m';ent!==''?showEntry():ind()},
+};
+function motorOCPD(mult,name){
+  const g=flc(), raw=g.v*mult, std=stdUp(raw); lastOCPD=std; setR('OCPD',std);
+  show({label:name,value:std,unit:'A',desc:`${fmt(r.HP,3)} HP, FLC ${fmt(g.v)} A`,
+    detail:`${mult*100}% × ${fmt(g.v)} A = ${fmt(raw,2)} A, next standard size up (430.52(C)(1) Ex. 1, 240.6(A)).`,scale:false});
+}
+function overload(mult,cond){
+  if(r.A==null)fail('Enter nameplate FLA in Amps first');
+  show({label:'Overload',value:r.A*mult,unit:'A',dp:2,desc:`${mult*100}% of ${fmt(r.A)} A nameplate`,detail:`430.32(A)(1): ${cond}.`,scale:false});
+}
+
+const RCL_MAP={V:'V',A:'A',W:'W',VA:'VA',PF:'PF',Eff:'Eff',HP:'HP',L:'L',VDt:'VDt',Amb:'Amb',CCC:'CCC',Par:'Par',Wires:'Wires',Size:'Size',GND:'OCPD',CB:'OCPD'};
+function press(id){
+  try{
+    if(navigator.vibrate)navigator.vibrate(6);
+    if(id==='shift'){shift=!shift;ind();return}
+    const s=shift;shift=false;
+    const k=s&&ALT[id]?ALT[id]:id;
+    if(/^\d$/.test(k)||k==='dot')return digit(k==='dot'?'.':k);
+    if(rcl&&k!=='Rcl'){
+      rcl=false; const reg=RCL_MAP[k];
+      if(reg){const v=get(reg);show({label:REG[reg][0],value:v==null?'—':v,unit:reg==='Size'&&v?sizeUnit(v):REG[reg][1],desc:v==null?'Not set':'Recalled',scale:false});if(typeof v==='number')fresh=true;return}
+    }
+    switch(k){
+      case 'add':case 'sub':case 'mul':case 'div':return binop(k);
+      case 'eq':return equals();
+      case 'pct':{const x=curVal();const y=op&&(op==='add'||op==='sub')?acc*x/100:x/100;ent='';show({label:'%',value:y,scale:false});return}
+      case 'neg':if(ent!==''){ent=ent.startsWith('-')?ent.slice(1):'-'+ent;return showEntry()}return unary(x=>-x,'±');
+      case 'sqrt':return unary(x=>x<0?NaN:Math.sqrt(x),'√');
+      case 'sq':return unary(x=>x*x,'x²');
+      case 'inv':return unary(x=>x===0?NaN:1/x,'1/x');
+      case 'pi':ent='';show({label:'π',value:Math.PI,scale:false});fresh=true;return;
+      case 'bs':if(ent!==''){ent=ent.slice(0,-1);return showEntry()}return;
+      case 'C':if(ent!==''){ent='';return showEntry()}op=null;acc=null;fresh=false;km=null;rcl=false;return show({label:'Ready',value:0,scale:false});
+      case 'AC':r={};t={};lastOCPD=null;ent='';op=null;acc=null;fresh=false;km=null;rcl=false;return show({label:'Cleared',value:0,desc:'All stored values cleared',scale:false});
+      case 'MC':S.mem=0;save();return show({label:'Memory',value:0,desc:'Cleared',scale:false});
+      case 'Mplus':{resolvePending();const x=curVal();S.mem+=x;save();ent='';fresh=false;return show({label:'M+',value:S.mem,desc:`Added ${fmt(x)}`,scale:false})}
+      case 'Rcl':if(rcl){rcl=false;ent='';show({label:'Memory',value:S.mem,scale:false});fresh=true;return}rcl=true;ind();return;
+    }
+    resolvePending();
+    if(F[k])return F[k]();
+  }catch(e){if(e instanceof CalcError)errShow(e.message);else{errShow('Unexpected error');console.error(e)}}
+}
+
+/* ---------- keypad ---------- */
+const ROWS=[
+ [['V','Volts','pw'],['A','Amps','pw'],['W','Watts','pw','PF','PF %'],['VA','VA','pw','Eff','Eff %'],['kilo','kilo','ut','milli','milli']],
+ [['WS','Wire size','wr'],['VD','VD %','wr','VDt','VD limit'],['L','Length','wr','MaxL','Max length'],['Size','Size','wr'],['Cond','Conduit','wr','Wires','# wires']],
+ [['HP','HP','mo','FLC','Motor FLC'],['CB','Breaker','mo','DEF','DE fuse'],['OL','Overload','mo','OL115','OL 115%'],['GND','Ground','gd'],['Amb','Amb °C','wr']],
+ [['Rcl','Rcl','ut','Mplus','M+'],['CCC','# CCC','wr'],['Par','Parallel','wr'],['BTU','kWh▸BTU','ut','KWH','BTU▸kWh'],['sqrt','√x','op','sq','x²']],
+ [['shift','2nd','shift'],['7','7','num'],['8','8','num'],['9','9','num'],['div','÷','op','inv','1/x']],
+ [['C','C','clr','AC','AC'],['4','4','num'],['5','5','num'],['6','6','num'],['mul','×','op','pi','π']],
+ [['bs','⌫','op','MC','MC'],['1','1','num'],['2','2','num'],['3','3','num'],['sub','−','op']],
+ [['neg','±','op'],['0','0','num'],['dot','.','num'],['eq','=','op','pct','%'],['add','+','op']]];
+const ALT={};
+const pad=el('pad');
+for(const row of ROWS)for(const [id,lab,g,alt,altLab] of row){
+  if(alt)ALT[id]=alt;
+  const c=document.createElement('div');c.className='cell';
+  c.innerHTML=`<span class="alt">${altLab||''}</span>`;
+  const b=document.createElement('button');b.className='key g-'+g;b.textContent=lab;b.dataset.k=id;
+  b.setAttribute('aria-label',alt?`${lab}; second function ${altLab}`:lab);
+  b.addEventListener('click',()=>press(id));
+  c.appendChild(b);pad.appendChild(c);
+}
+/* settings chips */
+const CHIPS={
+  phase:['c-phase',[1,3],v=>v===3?'3φ':'1φ'],metal:['c-metal',['Cu','Al'],v=>v],temp:['c-temp',[60,75,90],v=>v+'°C'],
+  insul:['c-insul',['THHN','XHHW','THW'],v=>v],race:['c-race',['EMT','PVC40','RMC'],v=>RACE_NAME[v]]};
+function renderChips(){for(const [k,[id,,f]] of Object.entries(CHIPS))el(id).textContent=f(S[k]);ind()}
+for(const [k,[id,vals]] of Object.entries(CHIPS))el(id).addEventListener('click',()=>{
+  S[k]=vals[(vals.indexOf(S[k])+1)%vals.length];
+  if(k==='metal'&&S.metal==='Al'&&r.Size==='14')delete r.Size;
+  save();renderChips();
+});
+/* sheets */
+function openSizes(){
+  const g=el('sizeGrid');g.innerHTML='';
+  for(const s of SIZES){if(AMP[S.metal][75][IDX[s]]==null)continue;
+    const b=document.createElement('button');b.textContent=s;if(r.Size===s)b.className='sel';
+    b.onclick=()=>{setR('Size',s);closeSheets();show({label:'Size',value:s,unit:sizeUnit(s)+' '+S.metal,desc:'Stored',scale:false})};g.appendChild(b)}
+  el('sizeSheet').classList.add('open');
+}
+function openRegs(){
+  const rows=Object.entries(REG).map(([k,[n,u]])=>{const v=get(k);
+    return `<tr><td>${n}</td><td>${v==null?'—':(k==='Size'?sizeTxt(v):fmt(v,4)+(u?' '+u:''))}${r[k]==null&&v!=null?' (default)':''}</td></tr>`}).join('');
+  el('regTable').innerHTML=rows+`<tr><td>Memory</td><td>${fmt(S.mem,4)}</td></tr>`;
+  el('regSheet').classList.add('open');
+}
+function closeSheets(){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'))}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{if(e.target===s)closeSheets()}));
+el('lcd').addEventListener('click',openRegs);
+el('clearAll').onclick=()=>{closeSheets();press('AC')};
+/* hardware keyboard */
+const KB={'+':'add','-':'sub','*':'mul','/':'div','Enter':'eq','=':'eq','.':'dot','Backspace':'bs','Escape':'C','%':'pct'};
+document.addEventListener('keydown',e=>{
+  if(document.querySelector('.sheet.open')){if(e.key==='Escape')closeSheets();return}
+  const id=/^\d$/.test(e.key)?e.key:KB[e.key];
+  if(id){e.preventDefault();press(id);const b=pad.querySelector(`[data-k="${id}"]`);if(b){b.classList.add('down');setTimeout(()=>b.classList.remove('down'),90)}}
+});
+window.addEventListener('resize',fitValue);
+renderChips();show({label:'Ready',value:0,scale:false});
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
