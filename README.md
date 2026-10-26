@@ -1,11 +1,7 @@
 # Sparky Calc — offline electrical calculator (PWA)
 
-
-
-```markdown
 > [!CAUTION]
 > This app is ALPHA! It is not suitable for use in live systems at this time.
-```
 
 ## Deploy
 
