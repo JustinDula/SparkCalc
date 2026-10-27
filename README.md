@@ -11,6 +11,8 @@ Local test: `python3 -m http.server 8000` → http://localhost:8000
 
 Install: Android/Chrome shows an install prompt. iOS: Safari → Share → Add to Home Screen.
 After the first load, everything runs offline. Bump `CACHE` in `sw.js` when you change any file.
+Use **Refresh** in the app to check for and load the latest version. If you are offline or the update
+cannot be reached, the currently cached app remains available.
 
 ## How it works
 
