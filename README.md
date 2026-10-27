@@ -31,4 +31,11 @@ Examples
 
 310.16, 310.15(B) ambient (formula method), 310.15(C)(1) adjustment, 240.4(D), 240.6(A), 250.122,
 430.22, 430.32(A)(1), 430.52(C)(1), 430.248, 430.250, Chapter 9 Tables 1, 4, 5, 8.
-Table values were transcribed by hand; verify against your code book and local amendments.
+Table values were transcribed by hand. The app's data and calculations have not been independently
+verified against the NEC. Do not rely on its results for live work; check the applicable code text,
+local adoption, and amendments, and have calculations reviewed by a qualified electrical professional.
+
+NFPA provides [free online access to codes and standards](https://www.nfpa.org/For-Professionals/Codes-and-Standards/List-of-Codes-and-Standards/Free-access),
+including the [NFPA 70 (NEC) online viewer](https://link.nfpa.org/free-access/publications/70/2026).
+Access requirements may apply. Check NFPA's [NEC enforcement information](https://www.nfpa.org/education-and-research/electrical/nec-enforcement-maps)
+and your local authority having jurisdiction to determine which edition and amendments apply where the work is performed.
